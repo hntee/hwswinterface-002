@@ -120,7 +120,8 @@ NOTES:
  *   Rating: 1
  */
 int bitAnd(int x, int y) {
-  return 2;
+  // x & y = ~(~(x & y)) = ~((~x) | (~y))
+  return ~((~x) | (~y));
 }
 /* 
  * bitXor - x^y using only ~ and & 
@@ -130,7 +131,15 @@ int bitAnd(int x, int y) {
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  /*
+   * x ^ y = (x | y) & ~(~x | ~y)
+   *
+   * x | y = ~(~(x | y))
+   *       = (~(~x & ~y))
+   * 
+   * ~(~x | ~y) = ~(x & y)
+   */
+  return (~(~x & ~y)) & (~(x & y));
 }
 /* 
  * thirdBits - return word with every third bit (starting from the LSB) set to 1
@@ -140,7 +149,15 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int thirdBits(void) {
-  return 2;
+  int result = 0;
+  const int MASK = 0x49; // 0100 1001
+
+  result |= MASK;
+  result |= MASK << 9;  // (MASK << 1) << 8;
+  result |= MASK << 18; // (MASK << 2) << 16;
+  result |= MASK << 24;
+
+  return result;
 }
 // Rating: 2
 /* 
@@ -153,7 +170,13 @@ int thirdBits(void) {
  *   Rating: 2
  */
 int fitsBits(int x, int n) {
-  return 2;
+  // 32 - n
+  int thirty_two_minus_n = 32 + (~n + 1);
+
+  // make the n-1 bit be the sign bit
+  int after_shift = x << thirty_two_minus_n >> thirty_two_minus_n;
+
+  return !(after_shift ^ x);
 }
 /* 
  * sign - return 1 if positive, 0 if zero, and -1 if negative
@@ -164,7 +187,10 @@ int fitsBits(int x, int n) {
  *  Rating: 2
  */
 int sign(int x) {
-  return 2;
+  // x = 0, all is 0
+  // x = 0x0..1010, first is 0, second is 1, last is 0
+  // x = 0x1..1010, first is 0, second is 0, last is 0xfff..f 
+  return (x & 0) + ( (!!x) & ~(x >> 31) ) + (x >> 31);
 }
 /* 
  * getByte - Extract byte n from word x
@@ -175,7 +201,10 @@ int sign(int x) {
  *   Rating: 2
  */
 int getByte(int x, int n) {
-  return 2;
+  int shift_width = n << 3; // n * 8;
+
+  // the last step is to clear 8 to 31 bits
+  return ( (x & (0xff << shift_width)) >> shift_width ) & 0xff;
 }
 // Rating: 3
 /* 
@@ -187,7 +216,19 @@ int getByte(int x, int n) {
  *   Rating: 3 
  */
 int logicalShift(int x, int n) {
-  return 2;
+  // c: is n greater than 0?
+  int c = !!n; // 0 or 1
+
+  // if n == 0, then just return original x
+  // if n > 0, the first n bits from the left should be masked to be 0
+
+  // c == 1 ? a : b
+  int n_minus_one = n + (1 << 31 >> 31);
+  int a = ~(1 << 31 >> n_minus_one);
+  int b = 1 << 31 >> 31;
+  int mask = ((c << 31 >> 31) & a) + (((!c) << 31 >> 31) & b);
+
+  return (x >> n) & mask;
 }
 /* 
  * addOK - Determine if can compute x+y without overflow
@@ -198,7 +239,22 @@ int logicalShift(int x, int n) {
  *   Rating: 3
  */
 int addOK(int x, int y) {
-  return 2;
+  // there are only two conditions that causes overflow
+  // first:
+  // x + y = 0x0*******, where x = 0x1******* and y = 0x1*******
+  // second:
+  // x + y = 0x1*******, where x = 0x0******* and y = 0x0*******
+  int _0xffffffff = 1 << 31 >> 31;
+  int x_plus_y = x + y;
+
+  // if the first condition is satisfied, first = 1
+  int first = (!((x & y) >> 31 ^ _0xffffffff)) & (! (x_plus_y >> 31) );
+
+  // if the second condition is satisfied, second = 1
+  int second = (!((x | y) >> 31)) & (!( (x_plus_y >> 31) ^ _0xffffffff ));
+
+  int overflow_cond = first | second;
+  return !overflow_cond;
 }
 // Rating: 4
 /* 
@@ -209,7 +265,9 @@ int addOK(int x, int y) {
  *   Rating: 4 
  */
 int bang(int x) {
-  return 2;
+  // return (~(x | (~x + 1)) >> 31) & 1;
+  // I think the following one is better, though the former one is valid
+  return ((x | (~x + 1)) >> 31) + 1;
 }
 // Extra Credit: Rating: 3
 /* 
@@ -220,7 +278,8 @@ int bang(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  int c = !!x; // 0 or 1
+  return ((c << 31 >> 31) & y) + (((!c) << 31 >> 31) & z);
 }
 // Extra Credit: Rating: 4
 /*
@@ -232,5 +291,10 @@ int conditional(int x, int y, int z) {
  *   Rating: 4
  */
 int isPower2(int x) {
-  return 2;
+  int minus_one = (1 << 31 >> 31);
+
+  // if x < 0, (x >> 31) + 1 == 0
+  // else if x == 0, (!!x) == 0
+  // else x > 0, return !((x - 1) & x)
+  return ((x >> 31) + 1) & (!!x) & (!((x + minus_one) & x));
 }
