@@ -152,8 +152,8 @@ int withinSameBlock(int * ptr1, int * ptr2) {
  */
 int withinArray(int * intArray, int size, int * ptr) {
   // TODO
-  return ptr < intArray + size &&
-         ptr >= intArray &&
+  return ptr < intArray + size &
+         ptr >= intArray &
          ((int) ptr - (int) intArray) % 4 == 0;
 }
 /*
